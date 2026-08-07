@@ -13,7 +13,7 @@ Read the booklet: **[link to the booklet on your site]**
 The booklet quotes specific numbers. Check them before you trust any of it:
 
 ```bash
-git clone https://github.com/YOUR-USERNAME/llm-booklet
+git clone https://github.com/Romyull-Islam/llm_booklet
 cd llm-booklet
 pip install torch numpy
 python verify.py
