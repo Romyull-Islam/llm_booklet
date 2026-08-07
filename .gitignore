@@ -1,0 +1,24 @@
+# data and checkpoints: never commit these
+*.pt
+*.gguf
+*.safetensors
+input.txt
+tinystories.txt
+data/
+models/
+outputs/
+results_*.json
+
+# python
+__pycache__/
+*.py[cod]
+.venv/
+.venv-vllm/
+venv/
+*.egg-info/
+
+# editors and os
+.vscode/
+.idea/
+.DS_Store
+.ipynb_checkpoints/

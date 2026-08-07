@@ -1,0 +1,21 @@
+# Weeks 3 to 5: pretrained models. Install on top of requirements.txt.
+# Versions the code was written and verified against, August 2026.
+-r requirements.txt
+
+transformers>=4.57
+accelerate
+datasets
+huggingface_hub
+trl>=1.9
+peft>=0.20
+bitsandbytes
+sentence-transformers>=5.0
+openai>=1.0
+fastapi
+uvicorn[standard]
+gradio
+pypdf
+python-dotenv
+
+# vLLM pins torch aggressively. Install it in a SEPARATE virtualenv:
+#   python -m venv .venv-vllm && source .venv-vllm/bin/activate && pip install vllm
