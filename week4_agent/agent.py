@@ -9,7 +9,7 @@ from tools import TOOLS
 # that env var dead: inside the container localhost:8000 is the container itself.
 client = OpenAI(base_url=os.environ.get("LLM_BASE_URL", "http://localhost:8000/v1"),
                 api_key="EMPTY")
-MODEL = "HuggingFaceTB/SmolLM2-135M-Instruct"
+MODEL = os.environ.get("LLM_MODEL", "HuggingFaceTB/SmolLM2-135M-Instruct")
 
 SYSTEM = """You are a careful assistant with access to tools.
 
@@ -19,7 +19,15 @@ Rules:
 - After receiving tool results, answer the user's question directly.
 - If a tool errors twice, tell the user what failed instead of retrying forever."""
 
-def run_agent(question, max_steps=6, system=SYSTEM, verbose=True):
+def run_agent(question, max_steps=6, system=SYSTEM, verbose=True, force_first_call=False):
+    """force_first_call=True sends tool_choice="required" on the first turn only.
+
+    Small models often *narrate* a tool call instead of making one: they reply
+    "I will use the search tool" and then answer from memory. tool_choice="required"
+    removes the choice for one turn, after which the loop goes back to "auto" so the
+    model can still decide it is finished. Use it whenever the question cannot be
+    answered without a tool, which is always true for retrieval.
+    """
     messages = [{"role": "system", "content": system},
                 {"role": "user", "content": question}]
     schemas = [t["schema"] for t in TOOLS.values()]
@@ -27,6 +35,7 @@ def run_agent(question, max_steps=6, system=SYSTEM, verbose=True):
     for step in range(max_steps):
         resp = client.chat.completions.create(
             model=MODEL, messages=messages, tools=schemas,
+            tool_choice="required" if (force_first_call and step == 0) else "auto",
             temperature=0.0,           # deterministic: agents should not be creative about control flow
         )
         msg = resp.choices[0].message

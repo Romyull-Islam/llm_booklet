@@ -13,8 +13,13 @@ RETRIEVER = HybridRetriever(records)
 
 @tool
 def search_knowledge_base(query: str) -> str:
-    """Search the internal document collection for passages relevant to a question.
-    Use this for any question about internal documentation, policies, or product details.
+    """Search the documentation for passages relevant to a question.
+
+    Pass the user's question verbatim, as a full sentence. Do NOT shorten it to
+    keywords: the retriever is hybrid dense plus BM25 and scores whole questions
+    far better than fragments. "What is the maximum parameter count?" works;
+    "maximum parameter count" does not.
+
     Returns numbered passages with their source titles."""
     hits = RETRIEVER.retrieve(query, top_k=4)
     if not hits:
@@ -24,15 +29,24 @@ def search_knowledge_base(query: str) -> str:
         for i, h in enumerate(hits)
     )
 
-SYSTEM = """You are a documentation assistant.
+SYSTEM = """You are a documentation assistant with a search tool.
 
 Rules:
-- For any question about internal documents, call search_knowledge_base FIRST.
-- Cite the passage numbers you used, like [1] or [2].
-- If the search returns nothing relevant, say so. Do not answer from memory.
-- Use the calculator for arithmetic."""
+- For any question about the documentation, call search_knowledge_base immediately.
+  Do not announce that you are going to search. Just search.
+- Answer only from the passages the tool returns. Cite them like [1] or [2].
+- If the passages do not contain the answer, say exactly:
+  "The documentation does not cover this." Do not guess, and do not build an answer
+  out of a passage title.
+"""
 
 if __name__ == "__main__":
-    ans, trace = run_agent("What does our documentation say about rate limits?", system=SYSTEM)
+    import sys
+    # A question this corpus can actually answer. Asking something the corpus does
+    # not cover is a good test too, but make it a deliberate one, not the default.
+    q = " ".join(sys.argv[1:]) or "What is the maximum parameter count for any model in this booklet?"
+    # force_first_call=True: a documentation question cannot be answered without
+    # searching, so do not leave that to the model's judgement.
+    ans, trace = run_agent(q, system=SYSTEM, force_first_call=True)
     print("\nANSWER:", ans)
-    print(f"\nsteps taken: {sum(1 for m in trace if m['role'] == 'tool')}")
+    print(f"\ntool calls: {sum(1 for m in trace if m.get('role') == 'tool')}")

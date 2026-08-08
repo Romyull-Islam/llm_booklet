@@ -10,6 +10,7 @@ Runs against whatever OpenAI-compatible endpoint is on LLM_BASE_URL.
 """
 import os
 import re
+import sys
 import statistics
 
 from openai import OpenAI
@@ -19,6 +20,11 @@ from small_tools import TOOLS, build_prompt, parse_tool_call, parse_args
 client = OpenAI(base_url=os.environ.get("LLM_BASE_URL", "http://localhost:8000/v1"),
                 api_key="EMPTY")
 MODEL = os.environ.get("LLM_MODEL", "HuggingFaceTB/SmolLM2-135M-Instruct")
+
+# --standard measures the OpenAI tools API path (agent.py) instead of the
+# format-copying path (small_tools.py). Use it with a model whose chat template
+# has a tool_call block; the two paths are not comparable on a model without one.
+STANDARD = "--standard" in sys.argv
 
 # (question, expected tool, expected answer)
 QUESTIONS = [
@@ -83,10 +89,22 @@ def run_one(question):
     return "stopped: step budget exhausted", first_parsed, chosen_tool, steps
 
 
+def run_standard(question):
+    """Same scoring, but through agent.py's OpenAI tools loop."""
+    from agent import run_agent
+    ans, trace = run_agent(question, max_steps=4, verbose=False)
+    calls = [m for m in trace if m.get("role") == "tool"]
+    tool = None
+    for m in trace:
+        for c in (m.get("tool_calls") or []):
+            tool = tool or c["function"]["name"]
+    return ans, bool(calls) or "ANSWER" in ans, tool, max(len(calls), 1)
+
+
 valid, correct_tool, correct_answer, all_steps = [], [], [], []
 print(f"{'question':<48}{'tool':>12}{'steps':>7}  answer")
 for q, want_tool, want_ans in QUESTIONS:
-    ans, parsed, tool, steps = run_one(q)
+    ans, parsed, tool, steps = (run_standard if STANDARD else run_one)(q)
     valid.append(bool(parsed))
     correct_tool.append(tool == want_tool)
     # Accept the right number appearing anywhere in the final answer.
@@ -96,8 +114,8 @@ for q, want_tool, want_ans in QUESTIONS:
 
 n = len(QUESTIONS)
 print()
-print(f"{'metric':<28}{'SmolLM2-135M':>14}")
-print(f"{'format validity rate':<28}{sum(valid)/n:>13.0%}")
-print(f"{'tool selection accuracy':<28}{sum(correct_tool)/n:>13.0%}")
-print(f"{'mean steps to answer':<28}{statistics.mean(all_steps):>13.2f}")
-print(f"{'final answer accuracy':<28}{sum(correct_answer)/n:>13.0%}")
+print(f"{'metric':<28}{MODEL.split(chr(47))[-1]:>28}  ({'standard tools API' if STANDARD else 'small_tools format'})")
+print(f"{'format validity rate':<28}{sum(valid)/n:>27.0%}")
+print(f"{'tool selection accuracy':<28}{sum(correct_tool)/n:>27.0%}")
+print(f"{'mean steps to answer':<28}{statistics.mean(all_steps):>27.2f}")
+print(f"{'final answer accuracy':<28}{sum(correct_answer)/n:>27.0%}")
