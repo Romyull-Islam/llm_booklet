@@ -1,16 +1,39 @@
 """
 gen_timing.py: section 1.6, "Time them both and write the ratio down."
 
-The cached path is linear in generated tokens, the uncached path is quadratic,
-so the ratio should widen as you generate more.
+Correctness first. A speedup on wrong output is worthless, so this asserts the
+cached and uncached paths produce identical tokens at 64, 128 and 300 generated
+tokens -- the last one deliberately past the trained context -- before it reports
+a single timing.
+
+The uncached path must re-run the whole prefix each step. An earlier version of
+model.py sliced it to max_seq_len, which capped the work per step and made the
+naive path linear; the cache then lost on measurement, and past max_seq_len the
+two paths diverged outright. That cap is gone.
 """
-import sys, time, torch
+import argparse
+import sys
+import time
+
+import torch
+
+ap = argparse.ArgumentParser()
+ap.add_argument("ckpt", nargs="?", default="ckpt_dense.pt")
+ap.add_argument("--threads", type=int, default=1,
+                help="CPU threads. Default 1 to match the booklet's 'one CPU core' table. "
+                     "On many cores the quadratic recompute parallelises and the cache "
+                     "looks far less impressive than it is per-core.")
+args = ap.parse_args()
+torch.set_num_threads(args.threads)
+
 from model import Transformer
 from train import CharTokenizer
 
-ck = torch.load(sys.argv[1] if len(sys.argv) > 1 else "ckpt_dense.pt",
-                map_location="cpu", weights_only=False)
-model = Transformer(ck["cfg"]); model.load_state_dict(ck["model"]); model.eval()
+ck = torch.load(args.ckpt, map_location="cpu", weights_only=False)
+model = Transformer(ck["cfg"])
+model.load_state_dict(ck["model"])
+model.eval()
+
 tok = CharTokenizer("")
 tok.chars = ck["chars"]
 tok.stoi = {c: i for i, c in enumerate(tok.chars)}
@@ -18,26 +41,40 @@ tok.itos = {i: c for c, i in tok.stoi.items()}
 
 prompt = torch.tensor([tok.encode("KING RICHARD")])
 
-def table(label):
-    print(f"\n{label}  (max_seq_len={model.cfg.max_seq_len})")
-    print(f"{'tokens':>7} {'uncached (s)':>13} {'cached (s)':>11} {'speedup':>8}")
-    for n in (100, 200, 400, 800):
-        times = {}
-        for use_cache in (False, True):
-            torch.manual_seed(0)
-            model.generate(prompt, 8, temperature=0.8, top_k=40, use_cache=use_cache)  # warm up
-            torch.manual_seed(0)
-            t0 = time.perf_counter()
-            model.generate(prompt, n, temperature=0.8, top_k=40, use_cache=use_cache)
-            times[use_cache] = time.perf_counter() - t0
-        print(f"{n:>7} {times[False]:>13.3f} {times[True]:>11.3f} {times[False]/times[True]:>7.2f}x")
+
+def generate(n, use_cache, seed=0):
+    torch.manual_seed(seed)
+    # temperature=0 is greedy, so both paths are deterministic and directly comparable.
+    return model.generate(prompt, n, temperature=0.0, use_cache=use_cache)
 
 
-# As shipped. generate(use_cache=False) slices `idx[:, -max_seq_len:]`, so the
-# uncached path is capped at 128 positions per forward: linear, not quadratic.
-table("A. uncached path window-capped, as the booklet ships it")
+# ---------------------------------------------------------------- correctness
+print(f"trained context: max_seq_len={model.cfg.max_seq_len} | threads {args.threads}")
+print("\nequivalence check (greedy, so the two paths must agree exactly):")
+for n in (64, 128, 300):
+    a = generate(n, use_cache=False)
+    b = generate(n, use_cache=True)
+    same = torch.equal(a, b)
+    note = "  <- past the trained context" if n > model.cfg.max_seq_len else ""
+    print(f"  {n:>3} tokens: {'identical' if same else 'DIVERGED'}{note}")
+    assert same, (
+        f"cached and uncached generation diverged at {n} tokens. "
+        "Timing a wrong implementation is meaningless -- fix this first."
+    )
+print("  GENERATION PATHS EQUIVALENT: PASS")
 
-# Remove the cap so the uncached path really does re-run the whole prefix every
-# step. This is the comparison the booklet's "quadratic vs linear" claim assumes.
-model.cfg.max_seq_len = 4096          # RoPE table grows on demand
-table("B. uncached path uncapped, re-running the full prefix each step")
+# -------------------------------------------------------------------- timing
+print("\n| generated tokens | uncached | cached | speedup |")
+print("|---|---|---|---|")
+for n in (64, 128, 256, 512):
+    times = {}
+    for use_cache in (False, True):
+        generate(8, use_cache)                       # warm up
+        t0 = time.perf_counter()
+        generate(n, use_cache)
+        times[use_cache] = time.perf_counter() - t0
+    print(f"| {n} | {times[False]:.3f}s | {times[True]:.3f}s | "
+          f"**{times[False] / times[True]:.2f}x** |")
+
+print("\nThe gap widens with length: the uncached path re-runs the whole prefix every")
+print("step, which is quadratic in generated tokens, while the cached path extends it.")

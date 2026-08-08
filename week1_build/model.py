@@ -269,10 +269,13 @@ class Transformer(nn.Module):
         in the output as literal '<unk>' text."""
         self.eval()
         if not use_cache:
-            # The naive path: re-run the whole prefix every single step.
+            # The naive path: re-run the whole prefix every single step. It must NOT
+            # slice to max_seq_len -- capping it makes this path linear too, so the
+            # cache appears to lose on measurement, and past max_seq_len the two
+            # paths stop producing the same tokens. RoPE grows on demand, so the
+            # full prefix is safe at any length.
             for _ in range(max_new_tokens):
-                window = idx[:, -self.cfg.max_seq_len:]
-                logits, _, _ = self.forward(window)
+                logits, _, _ = self.forward(idx)
                 idx = torch.cat([idx, self._sample(logits[:, -1], temperature, top_k, ban_tokens)], dim=1)
             return idx
 

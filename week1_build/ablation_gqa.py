@@ -6,19 +6,34 @@ the booklet never states the exercise itself. The columns are taken from the
 NOTES.md template: n_kv_heads in {6, 2, 1} -> val loss, KV bytes at 4096 tokens,
 seconds per step.
 
-Config is the section 1.5 run: 900 steps, batch 16, seq_len 128, d_model 192,
+Config follows the section 1.5 run: batch 16, seq_len 128, d_model 192,
 n_layers 4, n_heads 6. Only n_kv_heads changes.
+
+    python ablation_gqa.py --steps 500
 """
-import math, time, torch
+import argparse, math, time, torch
 from model import Config, Transformer
 from train import CharTokenizer, get_batch, estimate_loss, lr_at
 
-STEPS, BATCH, SEQ_LEN = 900, 16, 128
-D_MODEL, N_LAYERS, N_HEADS, LR = 192, 4, 6, 3e-3
-CACHE_SEQ_LEN, CACHE_BATCH, BYTES_PER_ELEM = 4096, 1, 4     # fp32 KV cache
+p = argparse.ArgumentParser()
+p.add_argument("--data", default="input.txt")
+p.add_argument("--steps", type=int, default=500)
+p.add_argument("--batch-size", type=int, default=16)
+p.add_argument("--seq-len", type=int, default=128)
+p.add_argument("--d-model", type=int, default=192)
+p.add_argument("--n-layers", type=int, default=4)
+p.add_argument("--n-heads", type=int, default=6)
+p.add_argument("--lr", type=float, default=3e-3)
+p.add_argument("--bytes-per-elem", type=int, default=2,
+               help="KV cache element size. 2 = bf16, which is what you deploy with.")
+a = p.parse_args()
+
+STEPS, BATCH, SEQ_LEN = a.steps, a.batch_size, a.seq_len
+D_MODEL, N_LAYERS, N_HEADS, LR = a.d_model, a.n_layers, a.n_heads, a.lr
+CACHE_SEQ_LEN, CACHE_BATCH, BYTES_PER_ELEM = 4096, 1, a.bytes_per_elem
 
 device = "cuda" if torch.cuda.is_available() else "cpu"
-text = open("input.txt", encoding="utf-8").read()
+text = open(a.data, encoding="utf-8").read()
 tok = CharTokenizer(text)
 ids = torch.tensor(tok.encode(text), dtype=torch.long)
 n = int(0.9 * len(ids))
@@ -68,11 +83,12 @@ def run(n_kv_heads):
 
 print(f"device {device} | {STEPS} steps, batch {BATCH}, seq_len {SEQ_LEN}, "
       f"d_model {D_MODEL}, n_layers {N_LAYERS}, n_heads {N_HEADS}\n")
-LABEL = {6: "6 (multi-head)", 2: "2 (grouped)", 1: "1 (multi-query)"}
+SWEEP = [h for h in (N_HEADS, 2, 1) if N_HEADS % h == 0]
+LABEL = {N_HEADS: f"{N_HEADS} (multi-head)", 2: "2 (grouped)", 1: "1 (multi-query)"}
 print(f"{'n_kv_heads':>16} {'params':>10} {'val loss':>9} "
       f"{'KV @4096':>12} {'reduction':>10} {'s/step':>9}")
 base = kv_bytes(N_HEADS)
-for h in (6, 2, 1):
+for h in SWEEP:
     val, sec, params = run(h)
     kb = kv_bytes(h)
     print(f"{LABEL[h]:>16} {params:>10,} {val:>9.4f} "

@@ -20,7 +20,7 @@ cd llm_booklet
 # interpreter (PEP 668). Use a throwaway environment rather than fighting it.
 python3 -m venv .venv-verify
 source .venv-verify/bin/activate      # Windows: .venv-verify\Scripts\Activate.ps1
-pip install torch numpy
+pip install torch numpy openai      # openai is needed by the agent-loop check
 python verify.py
 
 deactivate && rm -rf .venv-verify     # it existed only to check the numbers
