@@ -84,12 +84,14 @@ which are properties of the machine. Reproduced by `verify.py` where possible.
 rates are not** — they move with hardware, seed and, for real-word rate, with how many
 tokens you generate. Quote your own, and always say at what length.
 
-**On the KV cache figure.** Earlier versions of this table quoted `4.77e-07` as though it
-were a specification. It is not: it is fp32 rounding, and it moves with the seed
-(2.38e-07 to 4.77e-07 across six seeds on one machine), with the device, and with the
-data. In float64 the same test returns ~6e-16. What the test guarantees is the assertion,
-`diff < 1e-4`, not any particular digit. A real cache bug lands at 1e-2 or larger, four
-orders above the threshold, so there is no ambiguity to resolve by comparing digits.
+**On the KV cache figure.** Do not treat the exact digits as a target. The value is fp32
+rounding: it moves with the seed (2.38e-07 to 4.77e-07 across six seeds on one machine),
+with the device, and with the data, and in float64 the same test returns ~1e-16. What the
+test guarantees is the assertion, `diff < 1e-4`. A real cache bug lands at 1e-2 or larger,
+four orders above the threshold, so there is nothing to resolve by comparing digits.
+
+Note also what it does not cover: it proves the cached path agrees with the uncached path,
+not that attention is correct. A mistake present in both paths cancels out and passes.
 
 Your numbers will differ. Record them in `NOTES.md`.
 
