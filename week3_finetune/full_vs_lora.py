@@ -19,7 +19,7 @@ def run(tag, peft_config, lr):
         warmup_ratio=0.03,
         num_train_epochs=1,
         bf16=True,
-        packing=True,
+        packing=False,      # see train_lora.py: unsafe without FlashAttention
         logging_steps=10,
         eval_strategy="steps",
         eval_steps=50,

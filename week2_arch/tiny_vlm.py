@@ -1,6 +1,9 @@
+# week2_arch/tiny_vlm.py
 """Toy VLM: prove the vision-token splicing works end to end, no pretrained weights."""
 import torch, torch.nn as nn
-import sys; sys.path.append("../week1_build")
+import sys
+from pathlib import Path
+sys.path.append(str(Path(__file__).resolve().parent.parent / "week1_build"))
 from model import Config, Transformer
 
 class PatchEncoder(nn.Module):

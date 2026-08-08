@@ -3,13 +3,6 @@ from datasets import load_dataset
 from peft import LoraConfig
 from trl import SFTConfig, SFTTrainer
 
-# peft cannot infer target_modules for SmolVLM (Idefics3): there is no entry for it
-# in the built-in architecture->modules mapping, so a bare LoraConfig raises
-# "Please specify `target_modules` or `target_parameters` in `peft_config`".
-# The language tower is Llama-shaped, so the usual seven projections apply.
-TARGET_MODULES = ["q_proj", "k_proj", "v_proj", "o_proj",
-                  "gate_proj", "up_proj", "down_proj"]
-
 trainer = SFTTrainer(
     model="HuggingFaceTB/SmolVLM-256M-Instruct",
     args=SFTConfig(
@@ -25,9 +18,14 @@ trainer = SFTTrainer(
         report_to="none",
     ),
     train_dataset=load_dataset("trl-lib/llava-instruct-mix", split="train[:500]"),
-    peft_config=LoraConfig(r=16, lora_alpha=32, task_type="CAUSAL_LM",
-                           target_modules=TARGET_MODULES),
+    # target_modules is NOT optional here. PEFT auto-infers it from a table of ~38
+    # model types; Idefics3 (SmolVLM) is not in that table, so omitting this raises
+    # "Please specify `target_modules` or `target_parameters` in `peft_config`".
+    # These names hit the Llama-style text tower, which is where the adaptation matters.
+    peft_config=LoraConfig(
+        r=16, lora_alpha=32, task_type="CAUSAL_LM",
+        target_modules=["q_proj", "k_proj", "v_proj", "o_proj",
+                        "gate_proj", "up_proj", "down_proj"],
+    ),
 )
 trainer.train()
-trainer.save_model("models/smolvlm-256m-lora/final")
-print("saved VLM adapter to models/smolvlm-256m-lora/final")

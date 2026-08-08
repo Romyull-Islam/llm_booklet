@@ -1,6 +1,11 @@
-# week2_finetune/prepare_data.py
+# week3_finetune/prepare_data.py
 import json, random, re
 from pathlib import Path
+
+# Paths are resolved against the project root, not the current directory, so this
+# runs the same from anywhere.
+ROOT = Path(__file__).resolve().parent.parent
+DATA = ROOT / "data"
 
 def to_chat(example, system=None):
     """Turn a {'question','answer'} row into TRL conversational prompt-completion format."""
@@ -37,14 +42,16 @@ def split(rows, val_frac=0.1, seed=0):
     return rows[n_val:], rows[:n_val]
 
 def write_jsonl(rows, path):
-    Path(path).write_text("\n".join(json.dumps(r, ensure_ascii=False) for r in rows) + "\n",
+    path = Path(path)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text("\n".join(json.dumps(r, ensure_ascii=False) for r in rows) + "\n",
                           encoding="utf-8")
     return path
 
 if __name__ == "__main__":
     from datasets import load_dataset
     ds = load_dataset("FreedomIntelligence/medical-o1-reasoning-SFT", "en", split="train")
-    ds = ds.select(range(2000))          # keep the first run short
+    ds = ds.select(range(800))           # small on purpose: this trains in minutes
 
     rows = [to_chat({"question": r["Question"], "answer": r["Response"]},
                     system="You are a careful clinical reasoning assistant.")
@@ -52,6 +59,6 @@ if __name__ == "__main__":
 
     print("audit:", audit(rows))
     train, val = split(rows, val_frac=0.05)
-    write_jsonl(train, "data/train.jsonl")
-    write_jsonl(val, "data/val.jsonl")
+    write_jsonl(train, DATA / "train.jsonl")
+    write_jsonl(val, DATA / "val.jsonl")
     print(f"wrote {len(train)} train / {len(val)} val")

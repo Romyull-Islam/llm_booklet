@@ -11,9 +11,14 @@ class HybridRetriever:
         self.reranker = Reranker() if use_reranker else None
 
     def retrieve(self, query, k_dense=50, k_sparse=50, top_k=5):
-        dense_ranks = [i for i, _ in self.vec.search(query, k_dense)]
-        sparse_ranks = [i for i, _ in self.bm25.search(query, k_sparse)]
-        fused = rrf([dense_ranks, sparse_ranks])
+        # k_dense=0 or k_sparse=0 disables that retriever, which is what makes the
+        # section 5.6 ablation an ablation rather than four identical rows.
+        rank_lists = []
+        if k_dense:
+            rank_lists.append([i for i, _ in self.vec.search(query, k_dense)])
+        if k_sparse:
+            rank_lists.append([i for i, _ in self.bm25.search(query, k_sparse)])
+        fused = rrf(rank_lists)
         candidates = [self.records[i] for i in fused[:30]]
         if self.reranker:
             return self.reranker.rerank(query, candidates, top_k)

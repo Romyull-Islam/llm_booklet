@@ -20,10 +20,9 @@ def ndcg_at_k(retrieved_ids, gold_ids, k):
 def evaluate(retriever, eval_set, k=5, **retrieve_kwargs):
     """eval_set: list of {'question': str, 'gold_chunk_ids': [str, ...]}
 
-    retrieve_kwargs (k_dense, k_sparse) are forwarded to retrieve(). Without
-    this the ablation below cannot actually ablate: popping use_reranker off the
-    config left k_dense/k_sparse unused, so "dense only", "bm25 only" and
-    "hybrid" all ran identical hybrid retrieval.
+    retrieve_kwargs (k_dense, k_sparse) are forwarded to retrieve(). Without that
+    forwarding every row of the ablation below runs the identical configuration
+    and prints the same numbers three times.
     """
     rows = []
     for ex in eval_set:
@@ -48,7 +47,8 @@ if __name__ == "__main__":
         "hybrid":                dict(use_reranker=False),
         "hybrid + reranker":     dict(use_reranker=True),
     }
-    # Build the retriever once; only the reranker differs between instances.
+    # Build each retriever once. Only the reranker differs between instances, so
+    # rebuilding the vector index four times would waste most of the runtime.
     cache = {}
     for name, cfg in configs.items():
         cfg = dict(cfg)
