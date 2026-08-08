@@ -34,7 +34,7 @@ authors:
   - family-names: <SURNAME>
     given-names: <GIVEN NAME>
 message: "If you use this material, please cite it."
-url: "https://github.com/YOUR-USERNAME/llm-booklet"
+url: "https://github.com/YOUR-USERNAME/llm_booklet"
 date-released: 2026-08-06
 ```
 
@@ -51,8 +51,12 @@ The booklet is a single Markdown file, about 3,200 lines. Points to watch:
 
 ```bash
 python verify.py                    # must print 16/16
-git status                          # confirm no *.pt, *.gguf, or input.txt staged
-du -sh .                            # should be well under 1 MB
+git status --short                  # confirm no *.pt, *.gguf, or input.txt staged
+
+# Measure what git would actually publish, not the working tree. `du -sh .` counts
+# ignored files too, so a local venv/ or a downloaded corpus makes it look enormous.
+git ls-files -z | du -ch --files0-from=- | tail -1     # should be well under 1 MB
+git count-objects -vH | grep size-pack                 # the packed repository size
 ```
 
 The `.gitignore` already excludes checkpoints, downloaded corpora, and virtualenvs. Verify nothing large slipped in before the first commit, because removing a large file from git history afterwards is unpleasant.
@@ -62,7 +66,7 @@ Enable GitHub Actions so `.github/workflows/verify.yml` runs. A green badge on a
 Add the badge to the top of `README.md`:
 
 ```markdown
-[![verify](https://github.com/YOUR-USERNAME/llm-booklet/actions/workflows/verify.yml/badge.svg)](https://github.com/YOUR-USERNAME/llm-booklet/actions/workflows/verify.yml)
+[![verify](https://github.com/YOUR-USERNAME/llm_booklet/actions/workflows/verify.yml/badge.svg)](https://github.com/YOUR-USERNAME/llm_booklet/actions/workflows/verify.yml)
 ```
 
 ## 5. After publishing
