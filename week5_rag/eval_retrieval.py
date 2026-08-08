@@ -1,4 +1,4 @@
-# week3_rag/eval_retrieval.py
+# week5_rag/eval_retrieval.py
 import json
 import numpy as np
 
@@ -17,11 +17,17 @@ def ndcg_at_k(retrieved_ids, gold_ids, k):
     ideal = sum(1.0 / np.log2(i + 2) for i in range(min(len(gold_ids), k)))
     return dcg / ideal if ideal > 0 else 0.0
 
-def evaluate(retriever, eval_set, k=5):
-    """eval_set: list of {'question': str, 'gold_chunk_ids': [str, ...]}"""
+def evaluate(retriever, eval_set, k=5, **retrieve_kwargs):
+    """eval_set: list of {'question': str, 'gold_chunk_ids': [str, ...]}
+
+    retrieve_kwargs (k_dense, k_sparse) are forwarded to retrieve(). Without
+    this the ablation below cannot actually ablate: popping use_reranker off the
+    config left k_dense/k_sparse unused, so "dense only", "bm25 only" and
+    "hybrid" all ran identical hybrid retrieval.
+    """
     rows = []
     for ex in eval_set:
-        hits = retriever.retrieve(ex["question"], top_k=k)
+        hits = retriever.retrieve(ex["question"], top_k=k, **retrieve_kwargs)
         ids = [h["chunk_id"] for h in hits]
         rows.append({
             f"recall@{k}": recall_at_k(ids, ex["gold_chunk_ids"], k),
@@ -35,13 +41,18 @@ if __name__ == "__main__":
     records = json.load(open("data/chunks.json"))
     eval_set = json.load(open("data/eval_questions.json"))
 
-    # This ablation table is the actual deliverable of Week 3.
+    # This ablation table is the actual deliverable of Week 5.
     configs = {
         "dense only":            dict(k_sparse=0, use_reranker=False),
         "bm25 only":             dict(k_dense=0, use_reranker=False),
         "hybrid":                dict(use_reranker=False),
         "hybrid + reranker":     dict(use_reranker=True),
     }
+    # Build the retriever once; only the reranker differs between instances.
+    cache = {}
     for name, cfg in configs.items():
-        r = HybridRetriever(records, use_reranker=cfg.pop("use_reranker", True))
-        print(f"{name:<22}", evaluate(r, eval_set, k=5))
+        cfg = dict(cfg)
+        use_rr = cfg.pop("use_reranker", True)
+        if use_rr not in cache:
+            cache[use_rr] = HybridRetriever(records, use_reranker=use_rr)
+        print(f"{name:<22}", evaluate(cache[use_rr], eval_set, k=5, **cfg))

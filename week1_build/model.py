@@ -84,6 +84,12 @@ class Attention(nn.Module):
         self.v_proj = nn.Linear(cfg.d_model, cfg.n_kv_heads * self.head_dim, bias=False)
         self.o_proj = nn.Linear(cfg.n_heads * self.head_dim, cfg.d_model, bias=False)
 
+        # Normally `is_causal` is decided per call from T. Under torch.export with a
+        # dynamic sequence axis T is symbolic, so `T > 1` is a SymBool and
+        # scaled_dot_product_attention rejects it. Set this to a real bool to pin
+        # the choice for export. None keeps the runtime behaviour.
+        self.force_causal = None
+
     def forward(self, x, cos, sin, cache=None):
         B, T, _ = x.shape
 
@@ -112,7 +118,8 @@ class Attention(nn.Module):
 
         # Causal only when processing more than one position. During decoding
         # the single new query legitimately attends to the whole cache.
-        out = F.scaled_dot_product_attention(q, k, v, is_causal=(T > 1))
+        causal = (T > 1) if self.force_causal is None else self.force_causal
+        out = F.scaled_dot_product_attention(q, k, v, is_causal=causal)
 
         out = out.transpose(1, 2).contiguous().view(B, T, -1)
         return self.o_proj(out), new_cache
@@ -255,14 +262,18 @@ class Transformer(nn.Module):
         return logits, loss, new_caches
 
     @torch.no_grad()
-    def generate(self, idx, max_new_tokens, temperature=1.0, top_k=None, use_cache=True):
+    def generate(self, idx, max_new_tokens, temperature=1.0, top_k=None, use_cache=True,
+                 ban_tokens=None):
+        """ban_tokens: token ids the sampler must never emit. The word-level
+        tokeniser needs this for <unk> (index 0), which would otherwise show up
+        in the output as literal '<unk>' text."""
         self.eval()
         if not use_cache:
             # The naive path: re-run the whole prefix every single step.
             for _ in range(max_new_tokens):
                 window = idx[:, -self.cfg.max_seq_len:]
                 logits, _, _ = self.forward(window)
-                idx = torch.cat([idx, self._sample(logits[:, -1], temperature, top_k)], dim=1)
+                idx = torch.cat([idx, self._sample(logits[:, -1], temperature, top_k, ban_tokens)], dim=1)
             return idx
 
         # The cached path: prefill once, then feed one token at a time.
@@ -270,14 +281,17 @@ class Transformer(nn.Module):
         logits, _, caches = self.forward(idx, caches=caches, pos_offset=0)
         pos = idx.shape[1]
         for _ in range(max_new_tokens):
-            nxt = self._sample(logits[:, -1], temperature, top_k)
+            nxt = self._sample(logits[:, -1], temperature, top_k, ban_tokens)
             idx = torch.cat([idx, nxt], dim=1)
             logits, _, caches = self.forward(nxt, caches=caches, pos_offset=pos)
             pos += 1
         return idx
 
     @staticmethod
-    def _sample(logits, temperature, top_k):
+    def _sample(logits, temperature, top_k, ban_tokens=None):
+        if ban_tokens is not None:
+            logits = logits.clone()
+            logits[:, ban_tokens] = float("-inf")
         if temperature == 0.0:
             return logits.argmax(-1, keepdim=True)
         logits = logits / temperature

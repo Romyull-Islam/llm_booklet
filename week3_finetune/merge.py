@@ -1,4 +1,4 @@
-# week2_finetune/merge.py
+# week3_finetune/merge.py
 import torch
 from transformers import AutoModelForCausalLM, AutoTokenizer
 from peft import PeftModel

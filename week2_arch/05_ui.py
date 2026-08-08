@@ -1,4 +1,6 @@
-# week1_serve/05_ui.py
+# week2_arch/05_ui.py
+import inspect
+
 import gradio as gr
 from openai import OpenAI
 
@@ -22,16 +24,23 @@ def respond(message, history, system_prompt, temperature):
             partial += delta
             yield partial
 
-demo = gr.ChatInterface(
+kwargs = dict(
     fn=respond,
-    type="messages",
     additional_inputs=[
         gr.Textbox("You are a helpful, concise assistant.", label="System prompt"),
         gr.Slider(0.0, 1.5, value=0.7, label="Temperature"),
     ],
     title="Local SmolLM2-135M",
-    description="Served by vLLM. 135M parameters, under 1 GB of VRAM.",
+    description="135M parameters, under 1 GB of VRAM.",
 )
+
+# Gradio 4.42-5.x needed type="messages" to opt in to the dict history format.
+# Gradio 6 made it the only format and removed the argument, so passing it is a
+# TypeError. Week 0 installs gradio unpinned, which resolves to 6.x.
+if "type" in inspect.signature(gr.ChatInterface.__init__).parameters:
+    kwargs["type"] = "messages"
+
+demo = gr.ChatInterface(**kwargs)
 
 if __name__ == "__main__":
     demo.launch(server_name="0.0.0.0", server_port=7860)

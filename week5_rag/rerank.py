@@ -1,4 +1,4 @@
-# week3_rag/rerank.py
+# week5_rag/rerank.py
 from sentence_transformers import CrossEncoder
 
 class Reranker:

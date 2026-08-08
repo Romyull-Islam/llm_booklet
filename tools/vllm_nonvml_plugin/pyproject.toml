@@ -1,0 +1,15 @@
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "vllm-nonvml-plugin"
+version = "0.1.0"
+description = "Let vLLM start when NVML is version-mismatched but CUDA works"
+requires-python = ">=3.9"
+
+[project.entry-points."vllm.platform_plugins"]
+nonvml_cuda = "vllm_nonvml_plugin:cuda_without_nvml"
+
+[tool.setuptools]
+py-modules = ["vllm_nonvml_plugin"]

@@ -1,4 +1,4 @@
-# week1_serve/03_throughput.py
+# week2_arch/03_throughput.py
 import time, asyncio
 from openai import AsyncOpenAI
 

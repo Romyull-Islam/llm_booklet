@@ -13,10 +13,17 @@ Read the booklet: **[link to the booklet on your site]**
 The booklet quotes specific numbers. Check them before you trust any of it:
 
 ```bash
-git clone https://github.com/Romyull-Islam/llm_booklet
-cd llm-booklet
+git clone https://github.com/Romyull-Islam/llm_booklet.git
+cd llm_booklet
+
+# Debian, Ubuntu, WSL and Homebrew Python refuse installs into the system
+# interpreter (PEP 668). Use a throwaway environment rather than fighting it.
+python3 -m venv .venv-verify
+source .venv-verify/bin/activate      # Windows: .venv-verify\Scripts\Activate.ps1
 pip install torch numpy
 python verify.py
+
+deactivate && rm -rf .venv-verify     # it existed only to check the numbers
 ```
 
 Expected output ends with `16/16 checks passed`. It takes about 30 seconds, needs no GPU and no model downloads, and reproduces the KV cache correctness figure, the GQA cache ratio, the MoE parameter accounting, the retrieval metrics, and both agent loops.
@@ -32,8 +39,14 @@ cd week1_build
 curl -sSL -o input.txt https://raw.githubusercontent.com/karpathy/char-rnn/master/data/tinyshakespeare/input.txt
 
 python test_cache.py          # prove the KV cache is correct
-python train.py --steps 900   # character-level, about 6 minutes on one CPU core
-python train_words.py --steps 1200   # word-level, 100% real words
+
+# The flags matter: train.py's defaults build a 4.2M model, not the 1.59M one
+# the booklet measures. Pass the section 1.5 config to reproduce its numbers.
+python train.py --steps 900 --batch-size 16 --seq-len 128 \
+                --d-model 192 --n-layers 4 --n-heads 6 --n-kv-heads 2 \
+                --out ckpt_dense.pt      # ~6 minutes on one CPU core
+
+python train_words.py --steps 1200 --d-model 192 --n-layers 4 --min-count 3
 ```
 
 For weeks 3 to 5: `pip install -r requirements-gpu.txt`, then see [COURSE.md](COURSE.md).
@@ -52,15 +65,31 @@ For weeks 3 to 5: `pip install -r requirements-gpu.txt`, then see [COURSE.md](CO
 
 ## Reference results
 
-Measured on **one CPU core**, reproduced by `verify.py` where possible:
+Two independent runs, so you can see which numbers are properties of the code and
+which are properties of the machine. Reproduced by `verify.py` where possible.
 
-| Metric | Value |
-|---|---|
-| KV cache, one-shot vs incremental logits | `4.77e-07` max difference |
-| GQA cache reduction at 4096 tokens | 4.0x (8.4 MB to 2.1 MB) |
-| MoE, 8 experts top-2 | 6.3x parameters for 1.76x active compute |
-| Character model, 1.59M params, 900 steps | 360s, val loss 1.6078, 92.1% real words |
-| Word model, 2.64M params, 1200 steps | 575s, val perplexity 75.1, **100% real words** |
+| Metric | One CPU core | RTX 4500 Ada (24 GB) |
+|---|---|---|
+| KV cache, one-shot vs incremental logits | ~1e-7 | ~1e-7 |
+| GQA cache reduction at 4096 tokens, `n_heads=8, n_kv_heads=2` | 4.0x (8.4 MB to 2.1 MB) | same |
+| GQA cache reduction, `n_heads=6, n_kv_heads=2` (the section 1.5 config) | 3.0x (12.6 MB to 4.2 MB) | same |
+| MoE, 8 experts top-2, vs dense at the same architecture | 6.3x parameters, 1.76x active compute | val loss 1.5277 vs 1.5497 dense, at 2.6x wall clock |
+| Character model, 1,587,072 params, 900 steps | 360s, val 1.6078 | 5s, val 1.6636 |
+| Character model real-word rate **at 128 generated tokens** | 92.1% | 85.0% |
+| Character model real-word rate **at 800 generated tokens** | 61.5% | 53.5% |
+| Word model, 2,637,120 params, 1200 steps | 575s, val perplexity 75.1 | 136s, val perplexity 78.3 |
+| Word model real-word rate, 5 seeds x 5 lengths | **100.0%** | **100.0%** |
+
+**Parameter counts are exact and identical everywhere. Losses, timings and real-word
+rates are not** — they move with hardware, seed and, for real-word rate, with how many
+tokens you generate. Quote your own, and always say at what length.
+
+**On the KV cache figure.** Earlier versions of this table quoted `4.77e-07` as though it
+were a specification. It is not: it is fp32 rounding, and it moves with the seed
+(2.38e-07 to 4.77e-07 across six seeds on one machine), with the device, and with the
+data. In float64 the same test returns ~6e-16. What the test guarantees is the assertion,
+`diff < 1e-4`, not any particular digit. A real cache bug lands at 1e-2 or larger, four
+orders above the threshold, so there is no ambiguity to resolve by comparing digits.
 
 Your numbers will differ. Record them in `NOTES.md`.
 

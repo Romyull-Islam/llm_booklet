@@ -1,4 +1,4 @@
-# week1_serve/02_client.py
+# week2_arch/02_client.py
 from openai import OpenAI
 
 client = OpenAI(base_url="http://localhost:8000/v1", api_key="EMPTY")

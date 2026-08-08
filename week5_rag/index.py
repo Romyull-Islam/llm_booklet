@@ -1,4 +1,4 @@
-# week3_rag/index.py
+# week5_rag/index.py
 import numpy as np
 from sentence_transformers import SentenceTransformer
 

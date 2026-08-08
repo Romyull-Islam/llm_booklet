@@ -1,13 +1,19 @@
 # week4_agent/rag_agent.py
+import os
 import sys
-sys.path.append("../week3_rag")
 
-import json
-from retriever import HybridRetriever
-from tools import tool, TOOLS
-from agent import run_agent
+# The retriever lives in week5_rag/ and the corpus in the project-level data/.
+# The shipped paths pointed at "../week3_rag", a directory from an older layout
+# that does not exist, so both the import and the open() failed.
+HERE = os.path.dirname(os.path.abspath(__file__))
+sys.path.append(os.path.join(HERE, "..", "week5_rag"))
 
-records = json.load(open("../week3_rag/data/chunks.json"))
+import json                                              # noqa: E402
+from retriever import HybridRetriever                    # noqa: E402
+from tools import tool, TOOLS                            # noqa: E402
+from agent import run_agent                              # noqa: E402
+
+records = json.load(open(os.path.join(HERE, "..", "data", "chunks.json")))
 RETRIEVER = HybridRetriever(records)
 
 @tool

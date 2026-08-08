@@ -2,12 +2,16 @@
 *.pt
 *.gguf
 *.safetensors
+*.onnx
 input.txt
 tinystories.txt
 data/
 models/
 outputs/
 results_*.json
+
+# section 3.6 tells you to clone llama.cpp; keep it out of this repo
+llama.cpp/
 
 # python
 __pycache__/

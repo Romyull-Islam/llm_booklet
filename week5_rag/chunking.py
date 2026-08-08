@@ -1,4 +1,4 @@
-# week3_rag/chunking.py
+# week5_rag/chunking.py
 import re
 
 def chunk_text(text, chunk_chars=1200, overlap=200):

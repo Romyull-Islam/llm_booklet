@@ -72,6 +72,8 @@ def main():
     p.add_argument("--n-heads", type=int, default=8)
     p.add_argument("--n-kv-heads", type=int, default=2)
     p.add_argument("--n-experts", type=int, default=1)
+    p.add_argument("--aux-loss-coef", type=float, default=0.01,
+                   help="MoE load-balancing weight. Set 0.0 to watch the router collapse.")
     p.add_argument("--lr", type=float, default=3e-3)
     p.add_argument("--eval-every", type=int, default=250)
     p.add_argument("--out", default="ckpt.pt")
@@ -95,6 +97,7 @@ def main():
         d_ff=int(args.d_model * 8 / 3) // 8 * 8,
         max_seq_len=args.seq_len,
         n_experts=args.n_experts,
+        aux_loss_coef=args.aux_loss_coef,
     )
     model = Transformer(cfg).to(device)
     rep = model.param_report()
@@ -124,9 +127,18 @@ def main():
         opt.step()
 
         if step % args.eval_every == 0 or step == args.steps - 1:
+            # Report pure cross-entropy. Transformer.forward folds the auxiliary
+            # term into `loss` when n_experts > 1, which would make an MoE run's
+            # val loss incomparable to a dense one. Zero the coefficient for eval.
+            keep, cfg.aux_loss_coef = cfg.aux_loss_coef, 0.0
             ev = estimate_loss(model, splits, args.batch_size, args.seq_len, device)
+            cfg.aux_loss_coef = keep
+            extra = ""
+            if cfg.n_experts > 1:
+                aux = sum(b.ffn.aux_loss.item() for b in model.blocks) / cfg.n_layers
+                extra = f" | aux/layer {aux:.4f}"
             print(f"step {step:5d} | train {ev['train']:.4f} | val {ev['val']:.4f} | "
-                  f"lr {lr:.2e} | grad {gnorm:.2f} | {time.time()-t0:.0f}s")
+                  f"lr {lr:.2e} | grad {gnorm:.2f}{extra} | {time.time()-t0:.0f}s")
 
     torch.save({"model": model.state_dict(), "cfg": cfg, "chars": tok.chars}, args.out)
     print(f"saved {args.out}")

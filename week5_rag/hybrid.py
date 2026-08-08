@@ -1,4 +1,4 @@
-# week3_rag/hybrid.py
+# week5_rag/hybrid.py
 import math, re
 import numpy as np
 from collections import Counter

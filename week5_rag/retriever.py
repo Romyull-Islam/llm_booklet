@@ -1,4 +1,4 @@
-# week3_rag/retriever.py
+# week5_rag/retriever.py
 from index import VectorIndex
 from hybrid import BM25, rrf
 from rerank import Reranker

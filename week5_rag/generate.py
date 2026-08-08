@@ -1,4 +1,4 @@
-# week3_rag/generate.py
+# week5_rag/generate.py
 from openai import OpenAI
 
 client = OpenAI(base_url="http://localhost:8000/v1", api_key="EMPTY")

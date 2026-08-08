@@ -1,9 +1,14 @@
 # week4_agent/agent.py
 import json
+import os
 from openai import OpenAI
 from tools import TOOLS
 
-client = OpenAI(base_url="http://localhost:8000/v1", api_key="EMPTY")
+# The Dockerfile sets LLM_BASE_URL=http://host.docker.internal:8000/v1 so the
+# container can reach a model server on the host. Hardcoding localhost here made
+# that env var dead: inside the container localhost:8000 is the container itself.
+client = OpenAI(base_url=os.environ.get("LLM_BASE_URL", "http://localhost:8000/v1"),
+                api_key="EMPTY")
 MODEL = "HuggingFaceTB/SmolLM2-135M-Instruct"
 
 SYSTEM = """You are a careful assistant with access to tools.

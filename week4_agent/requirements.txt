@@ -1,0 +1,7 @@
+# Runtime dependencies for the containerised agent (week4_agent/Dockerfile).
+# The Dockerfile does `COPY requirements.txt .` but no such file shipped, so
+# `docker build` failed with "/requirements.txt: not found".
+fastapi
+uvicorn[standard]
+openai>=1.0
+pydantic
