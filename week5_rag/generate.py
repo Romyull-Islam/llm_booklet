@@ -1,8 +1,11 @@
 # week5_rag/generate.py
 from openai import OpenAI
 
-client = OpenAI(base_url="http://localhost:8000/v1", api_key="EMPTY")
-MODEL = "HuggingFaceTB/SmolLM2-135M-Instruct"
+import os
+
+client = OpenAI(base_url=os.environ.get("LLM_BASE_URL", "http://localhost:8000/v1"),
+                api_key="EMPTY")
+MODEL = os.environ.get("LLM_MODEL", "HuggingFaceTB/SmolLM2-135M-Instruct")
 
 SYSTEM = """You answer questions using only the numbered sources provided.
 
