@@ -47,12 +47,19 @@ OUT_EVAL = os.path.join(ROOT, "data", "eval_questions.json")
 if not os.path.exists(SRC):
     sys.exit(
         f"No documents found at {SRC}\n\n"
-        "Week 5 needs a corpus. Either:\n"
-        "  1. point --src at your own documents:\n"
-        "       python week5_rag/build_corpus.py --src ~/my-notes\n"
-        "  2. or save the booklet as data/booklet.md and rerun with no arguments.\n"
-        "     The questions in this file are anchored to the booklet, so that path\n"
-        "     also gives you an eval set for free."
+        "Week 5 needs a corpus. This repository does not ship one, because the\n"
+        "point of the chapter is to retrieve over documents you know.\n\n"
+        "Either:\n\n"
+        "  1. Point --src at a folder of your own .md or .txt files:\n"
+        "       python week5_rag/build_corpus.py --src /path/to/your/notes\n"
+        "     Any documents you have read will do: a runbook, project docs, notes.\n"
+        "     You will write your own eval questions, which section 5.6 explains.\n\n"
+        "  2. Or use the booklet itself. Save it as data/booklet.md and rerun with\n"
+        "     no arguments:\n"
+        "       mkdir -p data && cp /path/to/booklet.md data/booklet.md\n"
+        "       python week5_rag/build_corpus.py\n"
+        "     The 34 questions in this file are anchored to the booklet's text, so\n"
+        "     this path gives you a labelled eval set without writing one."
     )
 
 docs = []
