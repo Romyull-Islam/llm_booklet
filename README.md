@@ -4,8 +4,6 @@ Supporting code for a five-week course that goes from an empty file to a transfo
 
 **Nothing here exceeds 256M parameters.** Weeks 1 and 2 run on CPU. Every training run finishes while you are still sitting there.
 
-Read the booklet: **[link to the booklet on your site]**
-
 ---
 
 ## Reproduce the claims first
