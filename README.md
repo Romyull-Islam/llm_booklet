@@ -138,3 +138,13 @@ Issues and pull requests welcome, particularly:
 ## License
 
 Code: [MIT](LICENSE). The booklet text is [CC BY 4.0](LICENSE-DOCS).
+
+## Related projects
+
+Part of my work on efficient LLM systems ([all projects](https://github.com/Romyull-Islam)):
+
+- [μKV (EndurKV)](https://github.com/Romyull-Islam/EndurKV): KV-cache eviction with in-place compaction for LLM inference on a phone
+- [SemSched](https://github.com/Romyull-Islam/SemSched): memory capacity vs. prefetch bandwidth for LLM inference on hybrid CXL devices
+- [AQLoRA](https://github.com/Romyull-Islam/AQLoRA): zero-search precision allocation for fast quantized LoRA fine-tuning
+- [SLMs on the edge](https://github.com/Romyull-Islam/SLM): performance of small language models on Raspberry Pi, Jetson Orin and Mac mini (IEEE IPCCC 2024)
+- [VLM-Benchmarking](https://github.com/Romyull-Islam/VLM-Benchmarking): accuracy, time and energy of small vision-language models on Jetson AGX Orin
